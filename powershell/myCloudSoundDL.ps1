@@ -2,6 +2,20 @@
 $clientID = "cc96dfbae2768d9291e729d107f89792"
 $endURL = "client_id=$clientID"
 $resolveURL = "$baseURL/resolve.json?url="
+$SC = @{
+"connect"=@{}
+"oauth2"=@{"token"=@{}}
+"users"=@{}
+"tracks"=@{}
+"playlists"=@{}
+"comments"=@{}
+"me"=@{"connections"=@{};"activities"=@{}}
+"apps"=@{}
+"resolve"=@{}
+"oembed"=@{}
+}
+
+<#
 
 Function Get-SoundCloudUser
 {
@@ -55,3 +69,5 @@ Function Get-SoundCloudTrack
 
 <# get track example #>
 #Get-SoundCloudTrack -trackURL https://soundcloud.com/destroyed-by-seek-n-destroy
+
+#>
