@@ -21,6 +21,7 @@ public class MySoundCloudDownloader {
 
 	static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
 	static final JsonFactory JSON_FACTORY = new JacksonFactory();
+	static final String CLIENT_ID = "CLIENT_ID_HERE";
 
 	public static class SoundCloudURL extends GenericUrl {
 		public SoundCloudURL(String encodeUrl)
@@ -530,8 +531,9 @@ public class MySoundCloudDownloader {
 					}
 				});
 		//"http://api.soundcloud.com/tracks/13158665?client_id=YOUR_CLIENT_ID"
-		// Client_ID - cc96dfbae2768d9291e729d107f89792
-		SoundCloudURL url = new SoundCloudURL("http://api.soundcloud.com/tracks/13158665?client_id=cc96dfbae2768d9291e729d107f89792");
+		// stream url:
+		// https://api.soundcloud.com/tracks/280670580/stream?client_id=YOUR_CLIENT_ID
+		SoundCloudURL url = new SoundCloudURL("http://api.soundcloud.com/tracks/280670580?client_id=" + CLIENT_ID);
 		url.fields = "kind,id";
 		HttpRequest request = requestFactory.buildGetRequest(url);
 		Track track = request.execute().parseAs(Track.class);
