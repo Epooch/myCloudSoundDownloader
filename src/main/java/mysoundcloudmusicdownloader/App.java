@@ -19,7 +19,10 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.JsonObjectParser;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.mpatric.mp3agic.ID3v1;
+import com.mpatric.mp3agic.ID3v1Genres;
 import com.mpatric.mp3agic.ID3v1Tag;
+import com.mpatric.mp3agic.ID3v2;
+import com.mpatric.mp3agic.ID3v24Tag;
 import com.mpatric.mp3agic.InvalidDataException;
 import com.mpatric.mp3agic.Mp3File;
 import com.mpatric.mp3agic.NotSupportedException;
@@ -46,7 +49,8 @@ public class App
 	//static final String SC_URL = "https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix";
 	//static final String SC_URL = "https://soundcloud.com/destroyed-by-seek-n-destroy/seek-n-destroy-edits-volume-1";
 	//static final String SC_URL = "https://soundcloud.com/spinnin-deep/raving-george-feat-oscar-and-the-wolf-youre-mine-original-mix-available-august-24";
-	static final String SC_URL = "https://soundcloud.com/ludomir/closingin";
+	//static final String SC_URL = "https://soundcloud.com/ludomir/closingin";
+	static final String SC_URL = "https://soundcloud.com/emdmusic/gale-song-lumineers-cover";
 	static final String CLIENT_ID = "";
 	static final String RESOLVE_URL = "https://api.soundcloud.com/resolve.json?url=";
 	static final String RESOLVED_CLIENT_ID = "?client_id=" + CLIENT_ID;
@@ -129,7 +133,7 @@ public class App
 		System.out.println("Api Track ID: " + track.id);
 
 		//create tag with 'track' json post
-		ID3v1 id3v1Tag = createID3v1Tag(track);
+		ID3v2 id3v2Tag = createID3v2Tag(track);
 		System.out.println("----Finished creating ID3v1 Tag----");
 		System.out.println();
 
@@ -145,13 +149,12 @@ public class App
 
 		//create file name
 		String fileName = track.title + ".mp3";
-
 		//using the resulting byte array
 		// create a MP3File
 		Mp3File mp3file = createMp3File(result, fileName);
 
 		//tag with id3v1Tag and save
-		tagAndSave(id3v1Tag, mp3file);
+		tagAndSave(id3v2Tag, mp3file);
 
 		System.out.println();
 		System.out.println("Done!");
@@ -174,12 +177,36 @@ public class App
 		return baos.toByteArray();
 	}
 
-	private static ID3v1 createID3v1Tag(Track track)
+	private static ID3v2 createID3v2Tag(Track track)
 			throws IOException, UnsupportedTagException, InvalidDataException, NotSupportedException {
-		System.out.println("----Creating ID3v1 Tag----");
-		ID3v1 id3v1Tag = new ID3v1Tag();
-		System.out.println("Title: " + track.title);
-		id3v1Tag.setTitle(track.title);
+		System.out.println("----Creating ID3v2 Tag----");
+		ID3v2 id3v2Tag = new ID3v24Tag();
+		if(track.title != null)
+		{
+			System.out.println("Title: " + track.title);
+			id3v2Tag.setTitle(track.title);
+		}
+		if(track.user != null)
+		{
+			//id3v2Tag.setArtist(arg0);
+		}
+		if(track.genre != null)
+		{
+			System.out.println("Genre: " + track.genre);
+			int genre = ID3v1Genres.matchGenreDescription(track.genre);
+			if(genre != -1)
+			{
+				System.out.println("ID3v1 Genre: " + genre);
+				id3v2Tag.setGenre(genre);
+			}
+			else	//error out on genre
+				id3v2Tag.setComment(track.genre); // if genre is not found, append genre to description.
+		}
+		//id3v2Tag.setYear(arg0);
+		//id3v2Tag.setTrack(arg0);
+
+		// Will be the most difficult considering not all will contain an "album"
+		//id3v2Tag.setAlbum(arg0);
 		System.out.println("Stream_Url: " + track.stream_url);
 		System.out.println("Permalink_Url: " + track.permalink_url);
 		System.out.println("Is downloadable: " + track.downloadable);
@@ -187,13 +214,14 @@ public class App
 		{
 			System.out.println("Download Link: " + track.download_url);
 		}
-		return id3v1Tag;
+		return id3v2Tag;
 	}
 
-	private static Mp3File createMp3File(byte[] result, String fileTitle)
+	private static Mp3File createMp3File(byte[] result, String fileName)
 			throws FileNotFoundException, IOException, UnsupportedTagException, InvalidDataException {
 		System.out.println("----Creating Mp3 File----");
-		FileOutputStream fos = new FileOutputStream(fileTitle);
+		System.out.println("~FileName: " + fileName);
+		FileOutputStream fos = new FileOutputStream(fileName);
 		try {
 			System.out.println("----Write result to Mp3 File----");
 			fos.write(result);
@@ -209,13 +237,13 @@ public class App
 			e.printStackTrace();
 		}
 		System.out.println("----Opening File as Mp3File type----");
-		return new Mp3File(fileTitle);
+		return new Mp3File(fileName);
 	}
 
-	private static void tagAndSave(ID3v1 id3v1Tag, Mp3File mp3file)
+	private static void tagAndSave(ID3v2 id3v2Tag, Mp3File mp3file)
 			throws IOException, NotSupportedException {
 		System.out.println("----Setting ID3v1 tag to Mp3File----");
-		mp3file.setId3v1Tag(id3v1Tag);
+		mp3file.setId3v2Tag(id3v2Tag);
 
 		//save mp3 to updatedDirectory with same filename
 		System.out.println("----Saving updated Mp3File: " + mp3file.getFilename() + "----");
@@ -232,8 +260,9 @@ public class App
 			throws IOException, NotSupportedException {
 		System.out.println();
 		System.out.println("----Verifying tag data of Mp3File----");
-		ID3v1 id3v1TagTest =  mp3file.getId3v1Tag();
-		System.out.println("[id3v1TagTest] Title: " + id3v1TagTest.getTitle());
+		ID3v2 id3v2TagTest =  mp3file.getId3v2Tag();
+		System.out.println("[id3v2TagTest] Title: " + id3v2TagTest.getTitle());
+		System.out.println("[id3v2TagTest] Genre: " + id3v2TagTest.getGenre());
 	}
 
 	private static void viewRawRequestResponse(HttpResponse response) throws IOException {
