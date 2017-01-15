@@ -71,13 +71,13 @@ public class Track {
 	public String release;
 
 	@Key
-	public long release_day;
+	public String release_day;
 
 	@Key
-	public long release_month;
+	public String release_month;
 
 	@Key
-	public long release_year;
+	public String release_year;
 
 	@Key
 	public boolean streamable;
@@ -297,27 +297,27 @@ public class Track {
 		this.release = release;
 	}
 
-	public long getRelease_day() {
+	public String getRelease_day() {
 		return release_day;
 	}
 
-	public void setRelease_day(long release_day) {
+	public void setRelease_day(String release_day) {
 		this.release_day = release_day;
 	}
 
-	public long getRelease_month() {
+	public String getRelease_month() {
 		return release_month;
 	}
 
-	public void setRelease_month(long release_month) {
+	public void setRelease_month(String release_month) {
 		this.release_month = release_month;
 	}
 
-	public long getRelease_year() {
+	public String getRelease_year() {
 		return release_year;
 	}
 
-	public void setRelease_year(long release_year) {
+	public void setRelease_year(String release_year) {
 		this.release_year = release_year;
 	}
 
