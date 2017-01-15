@@ -11,6 +11,7 @@ import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -118,7 +119,11 @@ public class App
 		System.out.println("Building get request");
 		HttpRequest request = requestFactory.buildGetRequest(soundCloudUrl);
 		System.out.println("Begin execution of built request");
-		Track track = request.execute().parseAs(Track.class);
+		HttpResponse response = request.execute();
+
+		//viewRawRequestResponse(response);
+		//uncommenting will error out the second response below
+		Track track = response.parseAs(Track.class);
 		System.out.println("Request received successfully!");
 		System.out.println("Request Type: " + track.kind);
 		System.out.println("Api Track ID: " + track.id);
@@ -126,6 +131,8 @@ public class App
 		//create tag with 'track' json post
 		ID3v1 id3v1Tag = createID3v1Tag(track);
 		System.out.println("----Finished creating ID3v1 Tag----");
+		System.out.println();
+
 		//using the streamURL and the resolvedClientID
 		// we can generate a URL to the stream for download
 		String streamableCSUrl = track.stream_url + RESOLVED_CLIENT_ID;
@@ -227,6 +234,18 @@ public class App
 		System.out.println("----Verifying tag data of Mp3File----");
 		ID3v1 id3v1TagTest =  mp3file.getId3v1Tag();
 		System.out.println("[id3v1TagTest] Title: " + id3v1TagTest.getTitle());
+	}
+
+	private static void viewRawRequestResponse(HttpResponse response) throws IOException {
+		System.out.println();
+		System.out.println("Begin response output~~~");
+		String lines[] = response.parseAsString().split("\\,");
+		for(String line : lines)
+		{
+			System.out.println(line);
+		}
+		System.out.println("~~~End response output");
 		System.out.println();
 	}
+
 }
