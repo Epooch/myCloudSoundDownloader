@@ -1,7 +1,11 @@
 package mysoundcloudmusicdownloader;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
@@ -10,23 +14,37 @@ import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.http.json.*;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.JsonObjectParser;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Key;
 
-
-public class MySoundCloudDownloader {
-
+public class App
+{
+	public static void main(String[] args) {
+		try {
+			try {
+				run();
+				return;
+			} catch (HttpResponseException e) {
+				System.err.println(e.getMessage());
+			}
+		} catch (Throwable t) {
+			t.printStackTrace();
+		}
+		System.exit(1);
+	}
+	static final String CLIENT_ID = "";
+	static final String RESOLVE_URL = "https://api.soundcloud.com/resolve.json?url=";
 	static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
 	static final JsonFactory JSON_FACTORY = new JacksonFactory();
-	static final String CLIENT_ID = "CLIENT_ID_HERE";
 
 	public static class SoundCloudURL extends GenericUrl {
-		public SoundCloudURL(String encodeUrl)
+
+
+		public SoundCloudURL(String regularUrl)
 		{
-			super(encodeUrl);
+			super(regularUrl);
 		}
 
 		public String fields;
@@ -524,36 +542,81 @@ public class MySoundCloudDownloader {
 
 	private static void run() throws Exception
 	{
-		HttpRequestFactory requestFactory =
-				HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
-					public void initialize(HttpRequest request) {
-						request.setParser(new JsonObjectParser(JSON_FACTORY));
-					}
-				});
-		//"http://api.soundcloud.com/tracks/13158665?client_id=YOUR_CLIENT_ID"
-		// stream url:
-		// https://api.soundcloud.com/tracks/280670580/stream?client_id=YOUR_CLIENT_ID
-		SoundCloudURL url = new SoundCloudURL("http://api.soundcloud.com/tracks/280670580?client_id=" + CLIENT_ID);
-		url.fields = "kind,id";
-		HttpRequest request = requestFactory.buildGetRequest(url);
+		HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
+			public void initialize(HttpRequest request) {
+				request.setParser(new JsonObjectParser(JSON_FACTORY));
+			}
+		});
+		// List of tested and verified tracks
+			//https://soundcloud.com/burnitdownremixcontest/lny-tnz-burn-it-down-filament-remix
+			//https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix
+			//https://soundcloud.com/destroyed-by-seek-n-destroy/seek-n-destroy-edits-volume-1
+			//https://soundcloud.com/spinnin-deep/raving-george-feat-oscar-and-the-wolf-youre-mine-original-mix-available-august-24
+
+		// If json resolve stops working decoded urls the following will encode
+		// the url for json to resolve
+		//// String test =
+		// URLEncoder.encode("https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix",
+		// java.nio.charset.StandardCharsets.UTF_8.toString());
+		
+		String url = RESOLVE_URL + "https://soundcloud.com/spinnin-deep/raving-george-feat-oscar-and-the-wolf-youre-mine-original-mix-available-august-24"
+				+ "&client_id=" + CLIENT_ID;
+		SoundCloudURL soundcloudUrl = new SoundCloudURL(url);
+		soundcloudUrl.fields = "kind,id,stream_url,title,permalink_url,downloadable,download_url";
+		HttpRequest request = requestFactory.buildGetRequest(soundcloudUrl);
 		Track track = request.execute().parseAs(Track.class);
-		System.out.println();
-        System.out.println("-----------------------------------------------");
-        System.out.println("Kind: " + track.kind);
-        System.out.println("ID: " + track.id);
+		String resolvedClientId = writeOutInfo(track);
+		URL cloudSoundDL = new URL(track.stream_url + resolvedClientId);
+
+		byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
+		byteArrayToFile(result, track.title + ".mp3");
+
+		System.out.println("Done!");
 	}
 
-	public static void main(String[] args) {
-		try {
-			try {
-				run();
-				return;
-			} catch (HttpResponseException e) {
-				System.err.println(e.getMessage());
-			}
-		} catch (Throwable t) {
-			t.printStackTrace();
+	private static String writeOutInfo(Track track) {
+		System.out.println();
+		System.out.println("-----------------------------------------------");
+		System.out.println("Kind: " + track.kind);
+		System.out.println("ID: " + track.id);
+		System.out.println("Title: " + track.title);
+		System.out.println("Stream_Url: " + track.stream_url);
+		System.out.println("Permalink_Url: " + track.permalink_url);
+		System.out.println("Is downloadable: " + track.downloadable);
+		if (track.downloadable) {
+			System.out.println("Download Link: " + track.download_url);
 		}
-		System.exit(1);
+		System.out.println();
+		System.out.println("-----------------------------------------------");
+		String resolvedClientId = "?client_id=" + CLIENT_ID;
+		System.out.println("Streamable URL for download: " + track.stream_url + resolvedClientId);
+		System.out.println("Attempting Download");
+		return resolvedClientId;
+	}
+
+	public static byte[] inputStreamToByteArray(InputStream inStream) throws IOException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		byte[] buffer = new byte[8192];
+		int bytesRead;
+		while ((bytesRead = inStream.read(buffer)) > 0) {
+			baos.write(buffer, 0, bytesRead);
+		}
+		return baos.toByteArray();
+	}
+
+	public static void byteArrayToFile(byte[] byteArray, String outFilePath) throws FileNotFoundException {
+		FileOutputStream fos = new FileOutputStream(outFilePath);
+		try {
+			fos.write(byteArray);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			fos.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 }
