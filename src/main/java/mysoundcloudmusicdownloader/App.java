@@ -124,6 +124,13 @@ public class App
 		HttpRequest request = requestFactory.buildGetRequest(soundCloudUrl);
 		System.out.println("Begin execution of built request");
 		HttpResponse response = request.execute();
+		//TODO: Eric - Start here on ft/playlistDownload
+		//make base type of request - BasicRequest - kind, id, uri, status(jsonrequest status code)
+			//BasicRequest basic response.parseAs(BasicRequest.class)
+			// if(basic.kind == track)
+				//Track track = response.parseAs(Track.class);
+			// if(basic.kind == playlist)
+				//Playlist playlist = response.parseAs(Playlist.class);
 
 		//viewRawRequestResponse(response);
 		//uncommenting will error out the second response below
