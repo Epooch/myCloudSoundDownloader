@@ -19,8 +19,10 @@ import com.google.api.client.json.JsonObjectParser;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.mpatric.mp3agic.ID3v1;
 import com.mpatric.mp3agic.ID3v1Tag;
-import com.mpatric.mp3agic.ID3v2;
+import com.mpatric.mp3agic.InvalidDataException;
 import com.mpatric.mp3agic.Mp3File;
+import com.mpatric.mp3agic.NotSupportedException;
+import com.mpatric.mp3agic.UnsupportedTagException;
 
 public class App
 {
@@ -46,7 +48,6 @@ public class App
 	public static class SoundCloudURL extends GenericUrl {
 		// If json resolve stops working decoded urls the following will encode
 		// the url for json to resolve
-		//// String test =
 		// URLEncoder.encode("https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix",
 		// java.nio.charset.StandardCharsets.UTF_8.toString());
 		public SoundCloudURL(String encodedUrl)
@@ -55,6 +56,42 @@ public class App
 		}
 
 		public String fields;
+
+		private JsonRequestType jsonRequestType;
+
+		/**
+		 * Passing a requestType will set the fields for json request.
+		 * @param requestType
+		 */
+		public void setFieldsForJsonRequest(JsonRequestType requestType)
+		{
+			this.setJsonRequestType(requestType);
+			//TODO: Move this into the individual classes so each class has it's own set of fields.
+			// This implementation will not age well.
+			switch (requestType) {
+			case TRACK:
+				//Fields for tracks
+				this.fields = "kind,id,created_at,user_id,user,title,permalink,permalink_url,uri,sharing,embeddable_by,purchase_url,artwork_url,description,label,duration,genre,label_id,label_name,release,release_day,release_month,release_year,streamable,downloadable,state,license,track_type,waveform_url,download_url,stream_url,video_url,bpm,commentable,isrc,key_signature,original_format,original_content_size,asset_data,artwork_data,user_favorite";
+				break;
+			}
+		}
+
+		public JsonRequestType getJsonRequestType() {
+			return jsonRequestType;
+		}
+
+		private void setJsonRequestType(JsonRequestType jsonRequestType) {
+			this.jsonRequestType = jsonRequestType;
+		};
+	}
+
+	/**
+	 * JSON request type; Used with SoundCloudURL.
+	 * @author eric
+	 *
+	 */
+	public enum JsonRequestType {
+		TRACK
 	}
 
 	private static void run() throws Exception
@@ -77,49 +114,56 @@ public class App
 		String url = RESOLVE_URL + "https://soundcloud.com/user-579308838/we-are-loud-feat-ida-stay-high"
 				+ "&client_id=" + CLIENT_ID;
 
-		/*
-		 * Beginning a test of playlists
-		 */
-		// List of tested and verified playlists
-			//https://soundcloud.com/eric-calvano/sets/sometimes-you-just-feel-like-a
-//		String url = RESOLVE_URL + "https://soundcloud.com/eric-calvano/sets/sometimes-you-just-feel-like-a"
-//				+ "&client_id=" + CLIENT_ID;
 		System.out.println();
 		System.out.println("-----------------------------------------------");
 		System.out.println("requestURL: " + url);
 		SoundCloudURL soundcloudUrl = new SoundCloudURL(url);
-
-		/*
-		 * Fields for tracks
-		 */
-		soundcloudUrl.fields = "kind,id,stream_url,title,permalink_url,downloadable,download_url";
-
-		/*
-		 * Fields for playlists
-		 */
-//		soundcloudUrl.fields = "kind,id,title,tracks";
+		soundcloudUrl.setJsonRequestType(JsonRequestType.TRACK);
 
 		HttpRequest request = requestFactory.buildGetRequest(soundcloudUrl);
+		Track track = request.execute().parseAs(Track.class);
+		String resolvedClientId = "?client_id=" + CLIENT_ID;
+		writeOutInfo(resolvedClientId, track);
 
 		/*
 		 * Fields for tracks
 		 */
-		Track track = request.execute().parseAs(Track.class);
-
-		/*
-		 * Fields for playlists
-		 */
-//		Playlist playlist = request.execute().parseAs(Playlist.class);
-//		writeOutInfo(playlist);
-		String resolvedClientId = writeOutInfo(track);
-
-//		/*
-//		 * Fields for tracks
-//		 */
 		URL cloudSoundDL = new URL(track.stream_url + resolvedClientId);
 		byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
-		byteArrayToFile(result, track.title + ".mp3");
-		Mp3File mp3file = new Mp3File("We Are Loud feat. Ida - Stay High.mp3");
+		String trackTitle = track.title + ".mp3";
+
+		byteArrayToFile(result, trackTitle);
+		tagMediaWithMetaData(track, trackTitle);
+
+		System.out.println("Done!");
+	}
+
+	private static void writeOutInfo(String resolvedClientId, Track track)
+	{
+		System.out.println();
+		System.out.println("-----------------------------------------------");
+		System.out.println("Kind: " + track.kind);
+		System.out.println("ID: " + track.id);
+		/*
+		 * Fields for tracks
+		 */
+		System.out.println("Title: " + track.title);
+		System.out.println("Stream_Url: " + track.stream_url);
+		System.out.println("Permalink_Url: " + track.permalink_url);
+		System.out.println("Is downloadable: " + track.downloadable);
+		if (track.downloadable)
+		{
+			System.out.println("Download Link: " + track.download_url);
+		}
+		System.out.println();
+		System.out.println("-----------------------------------------------");
+		System.out.println("Streamable URL for download: " + track.stream_url + resolvedClientId);
+		System.out.println("Attempting Download");
+	}
+
+	private static void tagMediaWithMetaData(Track track, String trackTitle)
+			throws IOException, UnsupportedTagException, InvalidDataException, NotSupportedException {
+		Mp3File mp3file = new Mp3File(trackTitle);
 		ID3v1 id3v1Tag;
 		if (mp3file.hasId3v1Tag())
 		{
@@ -132,46 +176,13 @@ public class App
 			id3v1Tag = new ID3v1Tag();
 			mp3file.setId3v1Tag(id3v1Tag);
 			id3v1Tag.setTitle(track.title);
-			mp3file.save("tagged/" + track.title + ".mp3");
+			mp3file.save("tagged/" + trackTitle);
 			if (mp3file.hasId3v1Tag())
 			{
 				ID3v1 id3v1TagTest =  mp3file.getId3v1Tag();
 				System.out.println("[id3v1TagTest] Title: " + id3v1TagTest.getTitle());
 			}
 		}
-		System.out.println("Done!");
-	}
-
-	private static void writeOutInfo(Playlist playlist) {
-		System.out.println();
-		System.out.println("-----------------------------------------------");
-		System.out.println("Kind: " + playlist.kind);
-		System.out.println("ID: " + playlist.id);
-		System.out.println("Title: " + playlist.title);
-		System.out.println("Set: " + playlist.tracks);
-	}
-
-	private static String writeOutInfo(Track track) {
-		System.out.println();
-		System.out.println("-----------------------------------------------");
-		System.out.println("Kind: " + track.kind);
-		System.out.println("ID: " + track.id);
-		System.out.println("Title: " + track.title);
-		/*
-		 * Fields for tracks
-		 */
-		System.out.println("Stream_Url: " + track.stream_url);
-		System.out.println("Permalink_Url: " + track.permalink_url);
-		System.out.println("Is downloadable: " + track.downloadable);
-		if (track.downloadable) {
-			System.out.println("Download Link: " + track.download_url);
-		}
-		System.out.println();
-		System.out.println("-----------------------------------------------");
-		String resolvedClientId = "?client_id=" + CLIENT_ID;
-		System.out.println("Streamable URL for download: " + track.stream_url + resolvedClientId);
-		System.out.println("Attempting Download");
-		return resolvedClientId;
 	}
 
 	public static byte[] inputStreamToByteArray(InputStream inStream) throws IOException {

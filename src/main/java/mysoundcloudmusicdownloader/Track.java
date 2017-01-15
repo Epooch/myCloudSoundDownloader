@@ -9,6 +9,7 @@ import com.google.api.client.util.Key;
  *
  */
 public class Track {
+
 	@Key
 	public String kind;
 
