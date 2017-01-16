@@ -18,9 +18,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.JsonObjectParser;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.mpatric.mp3agic.ID3v1;
 import com.mpatric.mp3agic.ID3v1Genres;
-import com.mpatric.mp3agic.ID3v1Tag;
 import com.mpatric.mp3agic.ID3v2;
 import com.mpatric.mp3agic.ID3v24Tag;
 import com.mpatric.mp3agic.InvalidDataException;
@@ -132,8 +130,6 @@ public class App
 			// if(basic.kind == playlist)
 				//Playlist playlist = response.parseAs(Playlist.class);
 
-		//viewRawRequestResponse(response);
-		//uncommenting will error out the second response below
 		Track track = response.parseAs(Track.class);
 		System.out.println("Request received successfully!");
 		System.out.println("Request Type: " + track.kind);
@@ -160,7 +156,7 @@ public class App
 		// create a MP3File
 		Mp3File mp3file = createMp3File(result, fileName);
 
-		//tag with id3v1Tag and save
+		//tag with id3v2Tag and save
 		tagAndSave(id3v2Tag, mp3file);
 
 		System.out.println();
@@ -203,7 +199,7 @@ public class App
 			int genre = ID3v1Genres.matchGenreDescription(track.genre);
 			if(genre != -1)
 			{
-				System.out.println("ID3v1 Genre: " + genre);
+				System.out.println("ID3v2 Genre: " + genre);
 				id3v2Tag.setGenre(genre);
 			}
 			else	//error out on genre
@@ -270,18 +266,6 @@ public class App
 		ID3v2 id3v2TagTest =  mp3file.getId3v2Tag();
 		System.out.println("[id3v2TagTest] Title: " + id3v2TagTest.getTitle());
 		System.out.println("[id3v2TagTest] Genre: " + id3v2TagTest.getGenre());
-	}
-
-	private static void viewRawRequestResponse(HttpResponse response) throws IOException {
-		System.out.println();
-		System.out.println("Begin response output~~~");
-		String lines[] = response.parseAsString().split("\\,");
-		for(String line : lines)
-		{
-			System.out.println(line);
-		}
-		System.out.println("~~~End response output");
-		System.out.println();
 	}
 
 }
