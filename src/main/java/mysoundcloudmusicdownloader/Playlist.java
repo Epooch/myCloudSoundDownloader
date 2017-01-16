@@ -22,7 +22,7 @@ public class Playlist {
 	public int id;
 
 	@Key
-	public ArrayList<Track> tracks;
+	public ArrayList[] tracks;
 
 	public String getKind() {
 		return kind;
@@ -48,11 +48,11 @@ public class Playlist {
 		this.id = id;
 	}
 
-	public ArrayList<Track> getTracks() {
+	public ArrayList[] getTracks() {
 		return tracks;
 	}
 
-	public void setTracks(ArrayList<Track> tracks) {
+	public void setTracks(ArrayList[] tracks) {
 		this.tracks = tracks;
 	}
 }

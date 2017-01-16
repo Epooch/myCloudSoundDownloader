@@ -5,6 +5,7 @@ import com.google.api.client.util.Key;
 /**
  * Used to store a track from a json request to the soundcloud api.
  * A SoundCloud Track.
+ *
  * @author eric
  *
  */

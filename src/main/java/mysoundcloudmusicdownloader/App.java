@@ -1,18 +1,15 @@
 package mysoundcloudmusicdownloader;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 
-import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpRequestInitializer;
-import com.google.api.client.http.HttpResponse;
-import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -26,16 +23,14 @@ import com.mpatric.mp3agic.Mp3File;
 import com.mpatric.mp3agic.NotSupportedException;
 import com.mpatric.mp3agic.UnsupportedTagException;
 
+import mysoundcloudmusicdownloader.ResolvedRequest.RequestURL;
+
 public class App
 {
 	public static void main(String[] args) {
 		try {
-			try {
-				run();
-				return;
-			} catch (HttpResponseException e) {
-				System.err.println(e.getMessage());
-			}
+			run();
+			return;
 		} catch (Throwable t) {
 			t.printStackTrace();
 		}
@@ -57,57 +52,7 @@ public class App
 	static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
 	static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
-	public static class SoundCloudUrl extends GenericUrl {
-
-		public String fields;
-
-		private JsonRequestType jsonRequestType;
-
-		// If json resolve stops working decoded urls the following will encode
-		// the url for json to resolve
-		// URLEncoder.encode("https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix",
-		// java.nio.charset.StandardCharsets.UTF_8.toString());
-		public SoundCloudUrl(String requestUrl, JsonRequestType requestType)
-		{
-			super(requestUrl);
-			this.setJsonRequestTypeAndFields(requestType);
-		}
-
-		public JsonRequestType getJsonRequestType() {
-			return jsonRequestType;
-		}
-
-		/**
-		 * Passing a requestType will set the fields for json request.
-		 * @param requestType
-		 */
-		private void setJsonRequestTypeAndFields(JsonRequestType jsonRequestType) {
-			this.jsonRequestType = jsonRequestType;
-			//TODO: Move this into the individual classes so each class has it's own set of fields.
-			// This implementation will not age well.
-			switch (jsonRequestType) {
-			case TRACK:
-				//Fields for tracks
-				this.fields = "kind,id,created_at,user_id,user,title,permalink,permalink_url,uri,sharing,embeddable_by,purchase_url,artwork_url,description,label,duration,genre,label_id,label_name,release,release_day,release_month,release_year,streamable,downloadable,state,license,track_type,waveform_url,download_url,stream_url,video_url,bpm,commentable,isrc,key_signature,original_format,original_content_size,asset_data,artwork_data,user_favorite";
-				break;
-			default:
-				System.out.println("You must add the request type to the JsonRequestType enum for processing.");
-				System.out.close();
-				break;
-			}
-		};
-	}
-
-	/**
-	 * JSON request type; Used with SoundCloudURL.
-	 * @author eric
-	 *
-	 */
-	public enum JsonRequestType {
-		TRACK
-	}
-
-	private static void run() throws Exception
+	private static void run()
 	{
 		HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
 			public void initialize(HttpRequest request) {
@@ -116,25 +61,40 @@ public class App
 		});
 		System.out.println("-----------------------------------------------");
 		String requestUrl = createRequestUrl();
-		System.out.println("Request Url: " + requestUrl);
-		SoundCloudUrl soundCloudUrl = new SoundCloudUrl(requestUrl, JsonRequestType.TRACK);
-		System.out.println("Building get request");
-		HttpRequest request = requestFactory.buildGetRequest(soundCloudUrl);
-		System.out.println("Begin execution of built request");
-		HttpResponse response = request.execute();
-		//TODO: Eric - Start here on ft/playlistDownload
-		//make base type of request - BasicRequest - kind, id, uri, status(jsonrequest status code)
-			//BasicRequest basic response.parseAs(BasicRequest.class)
-			// if(basic.kind == track)
-				//Track track = response.parseAs(Track.class);
-			// if(basic.kind == playlist)
-				//Playlist playlist = response.parseAs(Playlist.class);
+		System.out.println("Initial request url: " + requestUrl);
+		RequestURL initialRequest = new RequestURL(requestUrl);
+		HttpRequest resolveRequest;
+		try {
+			resolveRequest = requestFactory.buildGetRequest(initialRequest);
+			ResolvedRequest resolvedRequest = resolveRequest.execute().parseAs(ResolvedRequest.class);
+			resolveRequest.execute().disconnect();
+			System.out.println("---Initial request response---");
+			System.out.println("Kind: " + resolvedRequest.kind);
+			System.out.println("ID: " + resolvedRequest.id);
+			System.out.println("URI: " + resolvedRequest.uri);
+			System.out.println("---Initial request response---");
 
-		Track track = response.parseAs(Track.class);
-		System.out.println("Request received successfully!");
-		System.out.println("Request Type: " + track.kind);
-		System.out.println("Api Track ID: " + track.id);
+			CloudSoundGetter cloudSound = new CloudSoundGetter(resolvedRequest.uri + RESOLVED_CLIENT_ID, resolvedRequest.kind);
+			HttpRequest request = requestFactory.buildGetRequest(cloudSound);
+			cloudSound.readResponse(request.execute());
+	
+			if(cloudSound.isPlaylist())
+			{
+				
+			}
+			else if (cloudSound.isTrack()) {
+				createAndTagTrack(cloudSound);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		System.out.println();
+		System.out.println("Done!");
+	}
 
+	private static void createAndTagTrack(CloudSoundGetter cloudSound) {
+		Track track = cloudSound.getTrack();
 		//create tag with 'track' json post
 		ID3v2 id3v2Tag = createID3v2Tag(track);
 		System.out.println("----Finished creating ID3v1 Tag----");
@@ -144,23 +104,37 @@ public class App
 		// we can generate a URL to the stream for download
 		String streamableCSUrl = track.stream_url + RESOLVED_CLIENT_ID;
 		System.out.println("Streamable CloudSound Url: " + streamableCSUrl);
-		URL cloudSoundDL = new URL(streamableCSUrl);
+		URL cloudSoundDL;
+		try {
+			cloudSoundDL = new URL(streamableCSUrl);
 
-		//using the generated StreamURL read the resulting request to a byte array
-		byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
-		System.out.println("----Download Completed----");
-
-		//create file name
-		String fileName = track.title + ".mp3";
-		//using the resulting byte array
-		// create a MP3File
-		Mp3File mp3file = createMp3File(result, fileName);
-
-		//tag with id3v2Tag and save
-		tagAndSave(id3v2Tag, mp3file);
-
-		System.out.println();
-		System.out.println("Done!");
+			//using the generated StreamURL read the resulting request to a byte array
+			byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
+			System.out.println("----Download Completed----");
+	
+			//create file name
+			String fileName = track.title + ".mp3";
+			//using the resulting byte array
+			// create a MP3File
+			Mp3File mp3file = createMp3File(result, fileName);
+	
+			if(mp3file != null)
+			{
+				//tag with id3v2Tag and save
+				tagAndSave(id3v2Tag, mp3file);
+			}
+			else
+				System.out.print("[ERROR]--- mp3File was null.");
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NotSupportedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	private static String createRequestUrl() {
@@ -181,7 +155,7 @@ public class App
 	}
 
 	private static ID3v2 createID3v2Tag(Track track)
-			throws IOException, UnsupportedTagException, InvalidDataException, NotSupportedException {
+	{
 		System.out.println("----Creating ID3v2 Tag----");
 		ID3v2 id3v2Tag = new ID3v24Tag();
 		if(track.title != null)
@@ -221,26 +195,29 @@ public class App
 	}
 
 	private static Mp3File createMp3File(byte[] result, String fileName)
-			throws FileNotFoundException, IOException, UnsupportedTagException, InvalidDataException {
+	{
 		System.out.println("----Creating Mp3 File----");
 		System.out.println("~FileName: " + fileName);
-		FileOutputStream fos = new FileOutputStream(fileName);
+		FileOutputStream fos;
 		try {
+			fos = new FileOutputStream(fileName);
 			System.out.println("----Write result to Mp3 File----");
 			fos.write(result);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
 			fos.close();
 			System.out.println("----Finished creating Mp3 File----");
+			System.out.println("----Opening File as Mp3File type----");
+			return new Mp3File(fileName);
+		} catch (UnsupportedTagException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidDataException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println("----Opening File as Mp3File type----");
-		return new Mp3File(fileName);
+		return null;
 	}
 
 	private static void tagAndSave(ID3v2 id3v2Tag, Mp3File mp3file)
