@@ -1,26 +1,25 @@
 package mysoundcloudmusicdownloader;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpRequestInitializer;
-import com.google.api.client.http.HttpResponse;
-import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.JsonObjectParser;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.mpatric.mp3agic.ID3v1;
 import com.mpatric.mp3agic.ID3v1Genres;
-import com.mpatric.mp3agic.ID3v1Tag;
 import com.mpatric.mp3agic.ID3v2;
 import com.mpatric.mp3agic.ID3v24Tag;
 import com.mpatric.mp3agic.InvalidDataException;
@@ -28,140 +27,191 @@ import com.mpatric.mp3agic.Mp3File;
 import com.mpatric.mp3agic.NotSupportedException;
 import com.mpatric.mp3agic.UnsupportedTagException;
 
+import mysoundcloudmusicdownloader.ResolvedRequest.RequestURL;
+
 public class App
 {
 	public static void main(String[] args) {
 		try {
-			try {
-				run();
-				return;
-			} catch (HttpResponseException e) {
-				System.err.println(e.getMessage());
-			}
+			run();
+			return;
 		} catch (Throwable t) {
 			t.printStackTrace();
 		}
 		System.exit(1);
 	}
 
-	// List of tested and verified tracks
-	//static final String SC_URL = "https://soundcloud.com/burnitdownremixcontest/lny-tnz-burn-it-down-filament-remix";
-	//static final String SC_URL = "https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix";
-	//static final String SC_URL = "https://soundcloud.com/destroyed-by-seek-n-destroy/seek-n-destroy-edits-volume-1";
-	//static final String SC_URL = "https://soundcloud.com/spinnin-deep/raving-george-feat-oscar-and-the-wolf-youre-mine-original-mix-available-august-24";
-	//static final String SC_URL = "https://soundcloud.com/ludomir/closingin";
-	static final String SC_URL = "https://soundcloud.com/emdmusic/gale-song-lumineers-cover";
 	static final String CLIENT_ID = "";
 	static final String RESOLVE_URL = "https://api.soundcloud.com/resolve.json?url=";
 	static final String RESOLVED_CLIENT_ID = "?client_id=" + CLIENT_ID;
 	static final String UNRESOLVED_CLIENT_ID = "&client_id=" + CLIENT_ID;
-	static final String TAGGED_DIRECTORY = "tagged/";
+	static final String PERSONAL_USE_BACKUP_DIR = "cloudSoundPU/";
 	static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
 	static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
-	public static class SoundCloudUrl extends GenericUrl {
-
-		public String fields;
-
-		private JsonRequestType jsonRequestType;
-
-		// If json resolve stops working decoded urls the following will encode
-		// the url for json to resolve
-		// URLEncoder.encode("https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix",
-		// java.nio.charset.StandardCharsets.UTF_8.toString());
-		public SoundCloudUrl(String requestUrl, JsonRequestType requestType)
-		{
-			super(requestUrl);
-			this.setJsonRequestTypeAndFields(requestType);
-		}
-
-		public JsonRequestType getJsonRequestType() {
-			return jsonRequestType;
-		}
-
-		/**
-		 * Passing a requestType will set the fields for json request.
-		 * @param requestType
-		 */
-		private void setJsonRequestTypeAndFields(JsonRequestType jsonRequestType) {
-			this.jsonRequestType = jsonRequestType;
-			//TODO: Move this into the individual classes so each class has it's own set of fields.
-			// This implementation will not age well.
-			switch (jsonRequestType) {
-			case TRACK:
-				//Fields for tracks
-				this.fields = "kind,id,created_at,user_id,user,title,permalink,permalink_url,uri,sharing,embeddable_by,purchase_url,artwork_url,description,label,duration,genre,label_id,label_name,release,release_day,release_month,release_year,streamable,downloadable,state,license,track_type,waveform_url,download_url,stream_url,video_url,bpm,commentable,isrc,key_signature,original_format,original_content_size,asset_data,artwork_data,user_favorite";
-				break;
-			default:
-				System.out.println("You must add the request type to the JsonRequestType enum for processing.");
-				System.out.close();
-				break;
-			}
-		};
-	}
-
-	/**
-	 * JSON request type; Used with SoundCloudURL.
-	 * @author eric
-	 *
-	 */
-	public enum JsonRequestType {
-		TRACK
-	}
-
-	private static void run() throws Exception
+	private static void run()
 	{
 		HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
 			public void initialize(HttpRequest request) {
 				request.setParser(new JsonObjectParser(JSON_FACTORY));
 			}
 		});
-		System.out.println("-----------------------------------------------");
-		String requestUrl = createRequestUrl();
-		System.out.println("Request Url: " + requestUrl);
-		SoundCloudUrl soundCloudUrl = new SoundCloudUrl(requestUrl, JsonRequestType.TRACK);
-		System.out.println("Building get request");
-		HttpRequest request = requestFactory.buildGetRequest(soundCloudUrl);
-		System.out.println("Begin execution of built request");
-		HttpResponse response = request.execute();
 
-		//viewRawRequestResponse(response);
-		//uncommenting will error out the second response below
-		Track track = response.parseAs(Track.class);
-		System.out.println("Request received successfully!");
-		System.out.println("Request Type: " + track.kind);
-		System.out.println("Api Track ID: " + track.id);
+		TestData testData = new TestData();
+		List<String> bunchOfUrls = testData.getUrls();
+		for(String url : bunchOfUrls)
+		{
+			System.out.println();
+			System.out.println("-----------------------------------------------");
+			String requestUrl = createRequestUrl(url);
+			System.out.println("Initial request url: " + requestUrl);
+			System.out.println();
+			RequestURL initialRequest = new RequestURL(requestUrl);
+			HttpRequest resolveRequest;
+			try {
+				resolveRequest = requestFactory.buildGetRequest(initialRequest);
+				ResolvedRequest resolvedRequest = resolveRequest.execute().parseAs(ResolvedRequest.class);
+				resolveRequest.execute().disconnect();
+				System.out.println("---Initial request response---");
+				System.out.println("Kind: " + resolvedRequest.kind);
+				System.out.println("ID: " + resolvedRequest.id);
+				System.out.println("URI: " + resolvedRequest.uri);
+				System.out.println("---Initial request response---");
+				System.out.println();
+				CloudSoundGetter cloudSound = new CloudSoundGetter(resolvedRequest.uri + RESOLVED_CLIENT_ID, resolvedRequest.kind);
+				HttpRequest request = requestFactory.buildGetRequest(cloudSound);
+				cloudSound.readResponse(request.execute());				
+				if(cloudSound.isPlaylist())
+				{
+					Playlist playlist = cloudSound.getPlaylist();
+					System.out.println("Playlist Title: " + playlist.getTitle());
+					if(playlist.getTracks() != null)
+					{
+						String playlistDirectory = playlist.getTitle() + "/";
+						for(Track track : playlist.getTracks())
+						{
+							System.out.println("Track title: " + track.title);
+							
+							createAndTagTrack(track, playlistDirectory);
+						}
+					}
+				}
+				else if (cloudSound.isTrack()) {
+					Track track = cloudSound.getTrack();
+					createAndTagTrack(track);
+				}
+				System.out.println("---Finished processing Initial request response---");
+				System.out.println("Kind: " + resolvedRequest.kind);
+				System.out.println("ID: " + resolvedRequest.id);
+				System.out.println("URI: " + resolvedRequest.uri);
+				System.out.println("---Finished processing Initial request response---");
+				System.out.println();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			System.out.println();
+			System.out.println("Done!");
+			System.out.println();
+		}
+	}
+
+	/**
+	 * Used to tag and create individual tracks for personal use.
+	 *
+	 * @param track - Track to be created, tagged and available for personal use.
+	 */
+	private static void createAndTagTrack(Track track) {
+		createAndTagTrack(track, "");
+	}
+
+	/**
+	 * Used to tag and create individual Tracks for personal use.
+	 *
+	 * @param track - Track to be created, tagged and available for personal use.
+	 * @param directory - For storing track in a specific directory.
+	 *	Example would be to store tracks from a single playlist in a directory
+	 *	named after the playlist title.
+	 */
+	private static void createAndTagTrack(Track track, String directory)
+	{
+		System.out.println();
+		System.out.println("--CREATING AND TAGGING TRACK--");
+		System.out.println();
+		String finalDirectory = PERSONAL_USE_BACKUP_DIR;
+		String tempDirectory = PERSONAL_USE_BACKUP_DIR + "tmp/";
+		if(!directory.isEmpty()) //is not empty
+			finalDirectory = finalDirectory + directory;
 
 		//create tag with 'track' json post
 		ID3v2 id3v2Tag = createID3v2Tag(track);
-		System.out.println("----Finished creating ID3v1 Tag----");
-		System.out.println();
 
-		//using the streamURL and the resolvedClientID
-		// we can generate a URL to the stream for download
+		//streamUrl and the resolvedClientId
+		// we can generate a Url to the stream for download
 		String streamableCSUrl = track.stream_url + RESOLVED_CLIENT_ID;
 		System.out.println("Streamable CloudSound Url: " + streamableCSUrl);
-		URL cloudSoundDL = new URL(streamableCSUrl);
+		URL cloudSoundDL;
+		try {
+			cloudSoundDL = new URL(streamableCSUrl);
 
-		//using the generated StreamURL read the resulting request to a byte array
-		byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
-		System.out.println("----Download Completed----");
+			//using the generated StreamURL read the resulting request to a byte array
+			byte[] result = inputStreamToByteArray(cloudSoundDL.openStream());
+			System.out.println("----Personal Use Backup Completed----");
 
-		//create file name
-		String fileName = track.title + ".mp3";
-		//using the resulting byte array
-		// create a MP3File
-		Mp3File mp3file = createMp3File(result, fileName);
+			//TODO(eric.calvano): This filename generator needs to be sorted out ASAP;
+			//	Will require checks against artist name to remove redundancies
 
-		//tag with id3v1Tag and save
-		tagAndSave(id3v2Tag, mp3file);
+			//create file name
+			String fileName = track.title.trim() + ".mp3";
 
-		System.out.println();
-		System.out.println("Done!");
+			Pattern pt = Pattern.compile("//");
+			Matcher match = pt.matcher(fileName);
+			while (match.find()) {
+				System.out.println("Begin removal of " + "//" + " in fileName: " + fileName);
+				fileName = fileName.replaceAll("//", "");
+				System.out.println("Removal of " + "//" + " successful; New fileName: " + fileName);
+			}
+
+			//create directory location
+			File personalUseDirectory = new File(finalDirectory + fileName);
+			personalUseDirectory.getParentFile().mkdirs();
+
+			//create temp directory location
+			File temp = new File(tempDirectory + fileName);
+			temp.getParentFile().mkdirs();
+
+			System.out.println("Temp Save location -----" + tempDirectory);
+
+			//using the resulting byte array
+			// create a MP3File
+			Mp3File mp3file = createMp3File(result, temp);
+	
+			if(mp3file != null)
+			{
+				//tag with id3v2Tag and save
+				tagAndSave(id3v2Tag, mp3file, personalUseDirectory);
+			}
+			else
+			{
+				System.out.print("[ERROR]--- mp3File was null.");
+				System.out.println();
+				System.out.println();
+			}
+			temp.delete();
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NotSupportedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
-	private static String createRequestUrl() {
-		String scUrlWithUnresolvedClientID = SC_URL + UNRESOLVED_CLIENT_ID;
+	private static String createRequestUrl(String url) {
+		String scUrlWithUnresolvedClientID = url + UNRESOLVED_CLIENT_ID;
 		String finalUrl = RESOLVE_URL + scUrlWithUnresolvedClientID;
 		return finalUrl;
 	}
@@ -178,7 +228,7 @@ public class App
 	}
 
 	private static ID3v2 createID3v2Tag(Track track)
-			throws IOException, UnsupportedTagException, InvalidDataException, NotSupportedException {
+	{
 		System.out.println("----Creating ID3v2 Tag----");
 		ID3v2 id3v2Tag = new ID3v24Tag();
 		if(track.title != null)
@@ -196,7 +246,7 @@ public class App
 			int genre = ID3v1Genres.matchGenreDescription(track.genre);
 			if(genre != -1)
 			{
-				System.out.println("ID3v1 Genre: " + genre);
+				System.out.println("ID3v2 Genre: " + genre);
 				id3v2Tag.setGenre(genre);
 			}
 			else	//error out on genre
@@ -214,41 +264,46 @@ public class App
 		{
 			System.out.println("Download Link: " + track.download_url);
 		}
+		System.out.println("----Finished creating ID3v1 Tag----");
+		System.out.println();
 		return id3v2Tag;
 	}
 
-	private static Mp3File createMp3File(byte[] result, String fileName)
-			throws FileNotFoundException, IOException, UnsupportedTagException, InvalidDataException {
+	private static Mp3File createMp3File(byte[] result, File tempFile)
+	{
 		System.out.println("----Creating Mp3 File----");
-		System.out.println("~FileName: " + fileName);
-		FileOutputStream fos = new FileOutputStream(fileName);
+		System.out.println("~FileName: " + tempFile.getName().trim());
+		FileOutputStream fos;
 		try {
+			fos = new FileOutputStream(tempFile);
 			System.out.println("----Write result to Mp3 File----");
 			fos.write(result);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
 			fos.close();
 			System.out.println("----Finished creating Mp3 File----");
+			System.out.println("----Opening File as Mp3File type----");
+			return new Mp3File(tempFile);
+		} catch (UnsupportedTagException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidDataException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println("----Opening File as Mp3File type----");
-		return new Mp3File(fileName);
+		return null;
 	}
 
-	private static void tagAndSave(ID3v2 id3v2Tag, Mp3File mp3file)
+	private static void tagAndSave(ID3v2 id3v2Tag, Mp3File mp3file, File finalFile)
 			throws IOException, NotSupportedException {
 		System.out.println("----Setting ID3v1 tag to Mp3File----");
 		mp3file.setId3v2Tag(id3v2Tag);
 
 		//save mp3 to updatedDirectory with same filename
-		System.out.println("----Saving updated Mp3File: " + mp3file.getFilename() + "----");
-		mp3file.save(TAGGED_DIRECTORY + mp3file.getFilename());
-		System.out.println("----Update complete of Mp3File: " + mp3file.getFilename() + "----");
+		System.out.println("----Saving updated Mp3File: " + finalFile + "----");
+		mp3file.save(finalFile.getAbsolutePath());
+		System.out.println("----Update complete of Mp3File: " + finalFile.getAbsolutePath() + "----");
 		
 		//TODO: Move into test and write unit test to verify tag data.
 		// for now use console out for verification.
@@ -263,18 +318,6 @@ public class App
 		ID3v2 id3v2TagTest =  mp3file.getId3v2Tag();
 		System.out.println("[id3v2TagTest] Title: " + id3v2TagTest.getTitle());
 		System.out.println("[id3v2TagTest] Genre: " + id3v2TagTest.getGenre());
-	}
-
-	private static void viewRawRequestResponse(HttpResponse response) throws IOException {
-		System.out.println();
-		System.out.println("Begin response output~~~");
-		String lines[] = response.parseAsString().split("\\,");
-		for(String line : lines)
-		{
-			System.out.println(line);
-		}
-		System.out.println("~~~End response output");
-		System.out.println();
 	}
 
 }
