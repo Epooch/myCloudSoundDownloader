@@ -6,8 +6,8 @@ import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpResponse;
 
 public class CloudSoundGetter extends GenericUrl {
-
-		public String fields;
+//
+//		public String fields;
 
 		private JsonRequestType jsonRequestType;
 
@@ -22,19 +22,18 @@ public class CloudSoundGetter extends GenericUrl {
 		public CloudSoundGetter(String requestUrl, String requestType)
 		{
 			super(requestUrl);
-			this.setFields(requestType);
-		}
-
-		/**
-		 * Passing a requestType will set the fields for json request.
-		 * @param requestType
-		 */
-		private void setFields(String jsonRequestType)
-		{
-			if(jsonRequestType.equalsIgnoreCase(JsonRequestType.TRACK.toString()))
+			System.out.println("---[CloudSoundGetter] Request Url: " + requestUrl);
+			//not sure what these fields are for when using the cloudSound API - they do not seem to be required currently
+			//	this.setFields(requestType);
+			if(requestType.equalsIgnoreCase(JsonRequestType.TRACK.toString()))
 			{
-				this.fields = "kind,id,created_at,user_id,user,title,permalink,permalink_url,uri,sharing,embeddable_by,purchase_url,artwork_url,description,label,duration,genre,label_id,label_name,release,release_day,release_month,release_year,streamable,downloadable,state,license,track_type,waveform_url,download_url,stream_url,video_url,bpm,commentable,isrc,key_signature,original_format,original_content_size,asset_data,artwork_data,user_favorite";
-				this.jsonRequestType = JsonRequestType.TRACK;
+				//this.fields = "kind,id,created_at,user_id,user,title,permalink,permalink_url,uri,sharing,embeddable_by,purchase_url,artwork_url,description,label,duration,genre,label_id,label_name,release,release_day,release_month,release_year,streamable,downloadable,state,license,track_type,waveform_url,download_url,stream_url,video_url,bpm,commentable,isrc,key_signature,original_format,original_content_size,asset_data,artwork_data,user_favorite";
+				jsonRequestType = JsonRequestType.TRACK;
+			}
+			else if(requestType.equalsIgnoreCase(JsonRequestType.PLAYLIST.toString()))
+			{
+				//this.fields = "kind,id,title";
+				jsonRequestType = JsonRequestType.PLAYLIST;
 			}
 			else
 			{
@@ -98,13 +97,13 @@ public class CloudSoundGetter extends GenericUrl {
 		}
 
 		public boolean isTrack() {
-			if(track != null)
+			if(jsonRequestType == JsonRequestType.TRACK)
 				return true;
 			return false;
 		}
 
 		public boolean isPlaylist() {
-			if(playlist != null)
+			if(jsonRequestType == JsonRequestType.PLAYLIST)
 				return true;
 			return false;
 		}

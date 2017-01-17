@@ -1,6 +1,6 @@
 package mysoundcloudmusicdownloader;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import com.google.api.client.util.Key;
 
@@ -10,7 +10,7 @@ import com.google.api.client.util.Key;
  * @author eric
  *
  */
-public class Playlist {
+public class Playlist extends Track{
 
 	@Key
 	public String kind;
@@ -22,7 +22,7 @@ public class Playlist {
 	public int id;
 
 	@Key
-	public ArrayList[] tracks;
+	public List<Track> tracks;
 
 	public String getKind() {
 		return kind;
@@ -48,11 +48,11 @@ public class Playlist {
 		this.id = id;
 	}
 
-	public ArrayList[] getTracks() {
+	public List<Track> getTracks() {
 		return tracks;
 	}
 
-	public void setTracks(ArrayList[] tracks) {
+	public void setTracks(List<Track> tracks) {
 		this.tracks = tracks;
 	}
 }

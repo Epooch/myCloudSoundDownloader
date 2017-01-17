@@ -60,6 +60,5 @@ public class ResolvedRequest {
 		// the url for json to resolve
 		// URLEncoder.encode("https://soundcloud.com/hytydremixs/cash-cash-millionaire-ft-nelly-hytyd-remix",
 		// java.nio.charset.StandardCharsets.UTF_8.toString());
-
 	}
 }
