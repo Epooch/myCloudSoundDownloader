@@ -37,9 +37,13 @@ public class App
 {
 	public static void main(String[] args) {
 		try {
-			//run();
-			String result = acrostic(args);
-			System.out.println(result);
+			if(args.length == 0)
+			{
+				System.out.println("No argument was supplied when running the application. Please provide at least a url as an argument.");
+				return;
+			}
+	        String url = getUrlArg(args);
+			run(url);
 			return;
 		} catch (Throwable t) {
 			t.printStackTrace();
@@ -47,15 +51,9 @@ public class App
 		System.exit(1);
 	}
 
-    public static String acrostic(String[] args) {
+    private static String getUrlArg(String[] args) {
         StringBuffer b = new StringBuffer();
-        for (int i = 0; i < args.length; i++) {
-            if (args[i].length() > i) {
-                b.append(args[i].charAt(i));
-            } else {
-                b.append('?');
-            }
-        }
+        b.append(args[0]);
         return b.toString();
     }
 
@@ -67,7 +65,7 @@ public class App
 	static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
 	static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
-	private static void run()
+	private static void run(String paramUrl)
 	{
 		HttpRequestFactory requestFactory = HTTP_TRANSPORT.createRequestFactory(new HttpRequestInitializer() {
 			public void initialize(HttpRequest request) {
@@ -77,6 +75,7 @@ public class App
 
 
 		List<String> bunchOfUrls = new ArrayList<String>();
+		bunchOfUrls.add(paramUrl);
 		for(String url : bunchOfUrls)
 		{
 			System.out.println();
