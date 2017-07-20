@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,11 +30,16 @@ import com.mpatric.mp3agic.UnsupportedTagException;
 
 import mysoundcloudmusicdownloader.ResolvedRequest.RequestURL;
 
+/*
+ * Used to download streams of music via Soundcloud
+ */
 public class App
 {
 	public static void main(String[] args) {
 		try {
-			run();
+			//run();
+			String result = acrostic(args);
+			System.out.println(result);
 			return;
 		} catch (Throwable t) {
 			t.printStackTrace();
@@ -41,7 +47,19 @@ public class App
 		System.exit(1);
 	}
 
-	static final String CLIENT_ID = "";
+    public static String acrostic(String[] args) {
+        StringBuffer b = new StringBuffer();
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].length() > i) {
+                b.append(args[i].charAt(i));
+            } else {
+                b.append('?');
+            }
+        }
+        return b.toString();
+    }
+
+	static final String CLIENT_ID = "cc96dfbae2768d9291e729d107f89792";
 	static final String RESOLVE_URL = "https://api.soundcloud.com/resolve.json?url=";
 	static final String RESOLVED_CLIENT_ID = "?client_id=" + CLIENT_ID;
 	static final String UNRESOLVED_CLIENT_ID = "&client_id=" + CLIENT_ID;
@@ -57,8 +75,8 @@ public class App
 			}
 		});
 
-		TestData testData = new TestData();
-		List<String> bunchOfUrls = testData.getUrls();
+
+		List<String> bunchOfUrls = new ArrayList<String>();
 		for(String url : bunchOfUrls)
 		{
 			System.out.println();
@@ -163,7 +181,14 @@ public class App
 
 			//create file name
 			String fileName = track.title.trim() + ".mp3";
-
+			Pattern p = Pattern.compile("[*]", Pattern.CASE_INSENSITIVE);
+			Matcher m = p.matcher(fileName);
+			boolean hasSpecialCharacter = m.find();
+			if (hasSpecialCharacter)
+			{
+				   System.out.println("There is a special character in my string");
+				   fileName=track.user.trim() + ".mp3";
+			}
 			Pattern pt = Pattern.compile("//");
 			Matcher match = pt.matcher(fileName);
 			while (match.find()) {
